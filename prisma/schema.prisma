@@ -1,0 +1,96 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String?
+  password      String
+  investments   Investment[]
+  portfolio     Portfolio?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Project {
+  id              String       @id @default(cuid())
+  title           String
+  description     String
+  targetAmount    Float
+  raisedAmount    Float        @default(0)
+  status          String       @default("ACTIVE") // ACTIVE, FUNDED, COMPLETED
+  rendersUrls     String[]
+  marketAnalysis  String
+  timeline        Json
+  investments     Investment[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Investment {
+  id          String    @id @default(cuid())
+  amount      Float
+  userId      String
+  projectId   String
+  status      String    @default("PENDING") // PENDING, COMPLETED, FAILED
+  user        User      @relation(fields: [userId], references: [id])
+  project     Project   @relation(fields: [projectId], references: [id])
+  payment     Payment?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Portfolio {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id])
+  totalInvested Float     @default(0)
+  totalReturns  Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model MonthlyReturn {
+  id            String    @id @default(cuid())
+  investmentId  String
+  amount        Float
+  date          DateTime
+  status        String    @default("PENDING") // PENDING, PAID
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  investmentId  String      @unique
+  investment    Investment  @relation(fields: [investmentId], references: [id])
+  amount        Float
+  provider      String      // STRIPE, MERCADOPAGO
+  providerId    String      // Payment ID from the provider
+  status        String      @default("PENDING") // PENDING, COMPLETED, FAILED
+  metadata      Json?       // Additional payment data
+  errorMessage  String?     // Error message if payment failed
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([providerId])
+}
+
+model PaymentWebhookLog {
+  id          String    @id @default(cuid())
+  provider    String    // STRIPE, MERCADOPAGO
+  eventType   String
+  payload     Json
+  processed   Boolean   @default(false)
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([provider, eventType])
+}
